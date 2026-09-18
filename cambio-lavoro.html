@@ -54,6 +54,37 @@
     font-family: 'DM Mono', monospace;
   }
 
+  .legend {
+    max-width: 62ch;
+    margin: 16px auto 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .legend-row {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+
+  .legend-row b { color: var(--text); font-weight: 600; }
+
+  .legend-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+
+  .legend-tag.voto { background: var(--resta-dim); color: var(--resta); }
+  .legend-tag.peso { background: #2a2820; color: var(--accent); }
+
   header p.neutral-note {
     margin-top: 10px;
     font-family: 'DM Sans', sans-serif;
@@ -272,6 +303,41 @@
     margin-top: 2px;
     font-style: italic;
   }
+
+  /* Ancore della scala: cosa significa dare 1 e cosa significa dare 5 */
+  .scale-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 7px;
+    padding-left: 9px;
+    border-left: 2px solid var(--border);
+  }
+
+  .scale-hint .sh {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+
+  .scale-hint .sh b {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .scale-hint .sh-lo b { background: #3a1f1f; color: #d98c7a; }
+  .scale-hint .sh-hi b { background: #1b332b; color: #7fd1b3; }
   .wcontrib {
     font-family: 'DM Mono', monospace;
     font-size: 9px;
@@ -486,6 +552,10 @@
   <h1>Cambio Lavoro</h1>
   <p>Restare dove sono vs accettare il nuovo ruolo</p>
   <p class="neutral-note">Tutti i voti e i pesi partono da 3 (neutro): li imposti tu, criterio per criterio.</p>
+  <div class="legend">
+    <div class="legend-row"><span class="legend-tag voto">VOTO 1–5</span> quanto quell’opzione è buona su quel criterio. Sotto ogni criterio trovi scritto cosa vuol dire <b>1</b> e cosa vuol dire <b>5</b>. <b>3</b> = nella media, né bene né male.</div>
+    <div class="legend-row"><span class="legend-tag peso">PESO 1–5</span> quanto quel criterio conta per te. <b>1</b> = irrilevante, non sposta niente. <b>3</b> = conta, ma non è decisivo. <b>5</b> = decisivo, può da solo far pendere la scelta.</div>
+  </div>
 </header>
 
 <div class="verdict-bar">
@@ -535,7 +605,7 @@
 <div id="matrix-container"></div>
 
 <footer>
-  Punteggio = Σ(voto × peso) · Scala voti 1–5 · Pesi 1–5<br>
+  Punteggio = Σ(voto × peso) · Voti da 1 a 5 · Pesi da 1 a 5<br>
   R: e C: sotto ogni criterio sono il contributo ponderato (voto × peso) di Restare e Cambiare<br>
   Voto alto = l'opzione è buona su quel criterio · Peso alto = quel criterio conta molto per te
 </footer>
@@ -547,12 +617,12 @@ const categories = [
     label: '💶 Retribuzione e condizioni economiche',
     open: true,
     items: [
-      { id: 'e1', label: 'Stipendio netto mensile', note: 'Quanto resta davvero in tasca ogni mese, non il lordo annuo', vP: 3, vA: 3, w: 3 },
-      { id: 'e2', label: 'Mensilità aggiuntive, premi e bonus', note: '13ª e 14ª, premi di risultato, superminimi, una tantum', vP: 3, vA: 3, w: 3 },
-      { id: 'e3', label: 'Inquadramento e CCNL applicato', note: 'Livello, qualifica e contratto collettivo: incidono su ferie, permessi e scatti', vP: 3, vA: 3, w: 3 },
-      { id: 'e4', label: 'Benefit e welfare aziendale', note: 'Buoni pasto, sanitaria integrativa, fondo pensione, rimborsi, contributi scuola', vP: 3, vA: 3, w: 3 },
-      { id: 'e5', label: 'Prospettive economiche a 3–5 anni', note: 'Non solo quanto prendi oggi: dove arriva lo stipendio più avanti', vP: 3, vA: 3, w: 3 },
-      { id: 'e6', label: 'Anzianità di servizio e scatti maturati', note: 'Cambiando si riparte da zero su scatti, ferie extra e seniority interna', vP: 3, vA: 3, w: 3 },
+      { id: 'e1', label: 'Stipendio netto mensile', note: 'Quanto resta davvero in tasca ogni mese, non il lordo annuo', lo: 'netto nettamente più basso di quello attuale', hi: 'netto sensibilmente più alto, si sente nel bilancio familiare', vP: 3, vA: 3, w: 3 },
+      { id: 'e2', label: 'Mensilità aggiuntive, premi e bonus', note: '13ª e 14ª, premi di risultato, superminimi, una tantum', lo: 'solo le 12 mensilità, nessun premio', hi: '13ª e 14ª piene più premi di risultato ricorrenti', vP: 3, vA: 3, w: 3 },
+      { id: 'e3', label: 'Inquadramento e CCNL applicato', note: 'Livello, qualifica e contratto collettivo: incidono su ferie, permessi e scatti', lo: 'livello basso rispetto alle mansioni, CCNL povero di tutele', hi: 'inquadramento adeguato, CCNL con buone condizioni', vP: 3, vA: 3, w: 3 },
+      { id: 'e4', label: 'Benefit e welfare aziendale', note: 'Buoni pasto, sanitaria integrativa, fondo pensione, rimborsi, contributi scuola', lo: 'nessun benefit, tutto a carico tuo', hi: 'buoni pasto, sanitaria, fondo pensione, contributi scuola', vP: 3, vA: 3, w: 3 },
+      { id: 'e5', label: 'Prospettive economiche a 3–5 anni', note: 'Non solo quanto prendi oggi: dove arriva lo stipendio più avanti', lo: 'stipendio fermo, nessuna prospettiva di aumento', hi: 'percorso di crescita economica chiaro e credibile', vP: 3, vA: 3, w: 3 },
+      { id: 'e6', label: 'Anzianità di servizio e scatti maturati', note: 'Cambiando si riparte da zero su scatti, ferie extra e seniority interna', lo: 'si riparte da zero, tutto il maturato va perso', hi: 'anzianità e scatti conservati o riconosciuti', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -560,13 +630,13 @@ const categories = [
     label: '⏱️ Orario, part-time e conciliazione',
     open: true,
     items: [
-      { id: 'o1', label: 'Monte ore settimanale', note: 'Ore contrattuali effettive, non quelle scritte sul contratto', vP: 3, vA: 3, w: 3 },
-      { id: 'o2', label: 'Part-time: disponibilità e reversibilità', note: 'Si può avere? E si può tornare a full time quando serve (o viceversa)?', vP: 3, vA: 3, w: 3 },
-      { id: 'o3', label: 'Flessibilità in entrata e uscita', note: 'Mezz’ora di margine la mattina cambia la vita con due figlie', vP: 3, vA: 3, w: 3 },
-      { id: 'o4', label: 'Smart working e giorni da casa', note: 'Quanti, come sono regolati, se sono un diritto o una concessione', vP: 3, vA: 3, w: 3 },
-      { id: 'o5', label: 'Prevedibilità dell’orario', note: 'Straordinari imprevisti, rientri last minute, sforamenti abituali', vP: 3, vA: 3, w: 3 },
-      { id: 'o6', label: 'Turni, sabati e aperture serali', note: 'Presenza di turnazioni o di aperture fuori dall’orario standard', vP: 3, vA: 3, w: 3 },
-      { id: 'o7', label: 'Compatibilità con scuola ed emergenze familiari', note: 'Figlia con la febbre alle 8 del mattino: quanto diventa un problema', vP: 3, vA: 3, w: 3 },
+      { id: 'o1', label: 'Monte ore settimanale', note: 'Ore contrattuali effettive, non quelle scritte sul contratto', lo: 'molte più ore di quelle sostenibili oggi', hi: 'ore in linea o inferiori a quelle attuali', vP: 3, vA: 3, w: 3 },
+      { id: 'o2', label: 'Part-time: disponibilità e reversibilità', note: 'Si può avere? E si può tornare a full time quando serve (o viceversa)?', lo: 'solo full time, nessuna possibilità di ridurre', hi: 'part-time disponibile e reversibile quando serve', vP: 3, vA: 3, w: 3 },
+      { id: 'o3', label: 'Flessibilità in entrata e uscita', note: 'Mezz’ora di margine la mattina cambia la vita con due figlie', lo: 'timbratura rigida al minuto', hi: 'ampia fascia di flessibilità in entrata e uscita', vP: 3, vA: 3, w: 3 },
+      { id: 'o4', label: 'Smart working e giorni da casa', note: 'Quanti, come sono regolati, se sono un diritto o una concessione', lo: 'sempre in sede, nessun giorno da casa', hi: 'più giorni da casa, regolati per iscritto', vP: 3, vA: 3, w: 3 },
+      { id: 'o5', label: 'Prevedibilità dell’orario', note: 'Straordinari imprevisti, rientri last minute, sforamenti abituali', lo: 'straordinari e rientri imprevisti all’ordine del giorno', hi: 'si esce all’ora prevista, quasi sempre', vP: 3, vA: 3, w: 3 },
+      { id: 'o6', label: 'Turni, sabati e aperture serali', note: 'Presenza di turnazioni o di aperture fuori dall’orario standard', lo: 'turni variabili, sabati e serali frequenti', hi: 'orario fisso, niente sabati né serali', vP: 3, vA: 3, w: 3 },
+      { id: 'o7', label: 'Compatibilità con scuola ed emergenze familiari', note: 'Figlia con la febbre alle 8 del mattino: quanto diventa un problema', lo: 'un imprevisto delle figlie diventa subito un problema', hi: 'ci si assenta o si esce prima senza drammi', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -574,11 +644,11 @@ const categories = [
     label: '🏖️ Ferie, permessi e copertura',
     open: true,
     items: [
-      { id: 'f1', label: 'Libertà di scegliere il periodo di ferie', note: 'Agosto, Natale, settimana bianca: si sceglie o si subisce il calendario aziendale', vP: 3, vA: 3, w: 3 },
-      { id: 'f2', label: 'Colleghi in grado di coprire l’assenza', note: 'Struttura piccola: ferie a incastro e sensi di colpa. Grande: più ridondanza', vP: 3, vA: 3, w: 3 },
-      { id: 'f3', label: 'Sovrapponibilità delle ferie con il resto della famiglia', note: 'Poter stare via tutti insieme nello stesso periodo', vP: 3, vA: 3, w: 3 },
-      { id: 'f4', label: 'Facilità di ottenere permessi brevi', note: 'Visite mediche, colloqui a scuola, imprevisti di mezza giornata', vP: 3, vA: 3, w: 3 },
-      { id: 'f5', label: 'Gestione dei picchi di lavoro', note: 'Periodi in cui le ferie sono di fatto vietate (scadenze, chiusure, stagionalità)', vP: 3, vA: 3, w: 3 },
+      { id: 'f1', label: 'Libertà di scegliere il periodo di ferie', note: 'Agosto, Natale, settimana bianca: si sceglie o si subisce il calendario aziendale', lo: 'periodo imposto dall’azienda, agosto escluso', hi: 'si sceglie liberamente, agosto e Natale compresi', vP: 3, vA: 3, w: 3 },
+      { id: 'f2', label: 'Colleghi in grado di coprire l’assenza', note: 'Struttura piccola: ferie a incastro e sensi di colpa. Grande: più ridondanza', lo: 'nessuno sa fare il tuo lavoro, ferie a incastro', hi: 'più colleghi intercambiabili, assenza indolore', vP: 3, vA: 3, w: 3 },
+      { id: 'f3', label: 'Sovrapponibilità delle ferie con il resto della famiglia', note: 'Poter stare via tutti insieme nello stesso periodo', lo: 'le ferie non coincidono quasi mai con il resto della famiglia', hi: 'si riesce a stare via tutti insieme', vP: 3, vA: 3, w: 3 },
+      { id: 'f4', label: 'Facilità di ottenere permessi brevi', note: 'Visite mediche, colloqui a scuola, imprevisti di mezza giornata', lo: 'ogni ora di permesso è una trattativa', hi: 'permessi brevi concessi senza problemi', vP: 3, vA: 3, w: 3 },
+      { id: 'f5', label: 'Gestione dei picchi di lavoro', note: 'Periodi in cui le ferie sono di fatto vietate (scadenze, chiusure, stagionalità)', lo: 'lunghi periodi in cui le ferie sono di fatto vietate', hi: 'nessun periodo di blocco, carico distribuito', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -586,12 +656,12 @@ const categories = [
     label: '🚗 Spostamenti e logistica',
     open: true,
     items: [
-      { id: 'l1', label: 'Distanza casa–lavoro', note: 'I chilometri secchi, in entrambe le direzioni', vP: 3, vA: 3, w: 3 },
-      { id: 'l2', label: 'Tempo di viaggio porta a porta', note: 'Andata più ritorno: è tempo sottratto alla giornata, tutti i giorni', vP: 3, vA: 3, w: 3 },
-      { id: 'l3', label: 'Affidabilità del tragitto', note: 'Treni che saltano, tangenziale bloccata, parcheggio introvabile', vP: 3, vA: 3, w: 3 },
-      { id: 'l4', label: 'Stress e stanchezza del viaggio', note: 'Guidare nel traffico non è lo stesso che leggere in treno', vP: 3, vA: 3, w: 3 },
-      { id: 'l5', label: 'Costo del pendolarismo', note: 'Carburante, pedaggi, abbonamento, usura dell’auto: si scala dal netto', vP: 3, vA: 3, w: 3 },
-      { id: 'l6', label: 'Prossimità in caso di emergenza', note: 'Quanto ci metti ad arrivare a scuola o a casa se serve subito', vP: 3, vA: 3, w: 3 },
+      { id: 'l1', label: 'Distanza casa–lavoro', note: 'I chilometri secchi, in entrambe le direzioni', lo: 'molto lontano, decine di chilometri', hi: 'molto vicino, quasi sotto casa', vP: 3, vA: 3, w: 3 },
+      { id: 'l2', label: 'Tempo di viaggio porta a porta', note: 'Andata più ritorno: è tempo sottratto alla giornata, tutti i giorni', lo: 'oltre un’ora e mezza al giorno tra andata e ritorno', hi: 'pochi minuti, tragitto trascurabile', vP: 3, vA: 3, w: 3 },
+      { id: 'l3', label: 'Affidabilità del tragitto', note: 'Treni che saltano, tangenziale bloccata, parcheggio introvabile', lo: 'ritardi e imprevisti quasi quotidiani, parcheggio introvabile', hi: 'tragitto regolare e prevedibile, parcheggio garantito', vP: 3, vA: 3, w: 3 },
+      { id: 'l4', label: 'Stress e stanchezza del viaggio', note: 'Guidare nel traffico non è lo stesso che leggere in treno', lo: 'guida nel traffico, si arriva già stanchi', hi: 'tragitto rilassato, o tempo di viaggio utilizzabile', vP: 3, vA: 3, w: 3 },
+      { id: 'l5', label: 'Costo del pendolarismo', note: 'Carburante, pedaggi, abbonamento, usura dell’auto: si scala dal netto', lo: 'costo elevato che erode una fetta visibile del netto', hi: 'costo minimo o quasi nullo', vP: 3, vA: 3, w: 3 },
+      { id: 'l6', label: 'Prossimità in caso di emergenza', note: 'Quanto ci metti ad arrivare a scuola o a casa se serve subito', lo: 'un’ora buona per arrivare a casa o a scuola', hi: 'si arriva in pochi minuti', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -599,14 +669,14 @@ const categories = [
     label: '🏢 Dimensione della struttura (piccola vs grande)',
     open: true,
     items: [
-      { id: 'st1', label: 'Ridondanza dei ruoli', note: 'Se manchi tu, qualcuno sa fare il tuo lavoro? O si ferma tutto?', vP: 3, vA: 3, w: 3 },
-      { id: 'st2', label: 'Varietà delle mansioni', note: 'Struttura piccola: fai un po’ di tutto. Grande: fai una cosa sola, bene', vP: 3, vA: 3, w: 3 },
-      { id: 'st3', label: 'Processi e organizzazione interna', note: 'Si lavora per metodo e procedure o per improvvisazione continua', vP: 3, vA: 3, w: 3 },
-      { id: 'st4', label: 'Formazione e affiancamento', note: 'Ti insegnano o ti buttano dentro e ti arrangi', vP: 3, vA: 3, w: 3 },
-      { id: 'st5', label: 'Percorso di carriera formalizzato', note: 'Esistono livelli, valutazioni periodiche, avanzamenti prevedibili', vP: 3, vA: 3, w: 3 },
-      { id: 'st6', label: 'Solidità economica del datore di lavoro', note: 'Fatturato, clienti, dipendenza da pochi committenti, situazione finanziaria', vP: 3, vA: 3, w: 3 },
-      { id: 'st7', label: 'Visibilità del contributo personale', note: 'Struttura grande: rischio di sparire nel numero. Piccola: tutto si vede', vP: 3, vA: 3, w: 3 },
-      { id: 'st8', label: 'Dipendenza dal singolo capo e tutele formali', note: 'In una struttura piccola se cambia il titolare cambia tutto; in una grande c’è chi ascolta', vP: 3, vA: 3, w: 3 },
+      { id: 'st1', label: 'Ridondanza dei ruoli', note: 'Se manchi tu, qualcuno sa fare il tuo lavoro? O si ferma tutto?', lo: 'sei l’unica a fare quel lavoro: se manchi, si ferma tutto', hi: 'più persone coprono lo stesso ruolo', vP: 3, vA: 3, w: 3 },
+      { id: 'st2', label: 'Varietà delle mansioni', note: 'Struttura piccola: fai un po’ di tutto. Grande: fai una cosa sola, bene', lo: 'varietà lontana da quella che cerchi: troppo ripetitivo o troppo dispersivo', hi: 'giusto equilibrio tra varietà e specializzazione', vP: 3, vA: 3, w: 3 },
+      { id: 'st3', label: 'Processi e organizzazione interna', note: 'Si lavora per metodo e procedure o per improvvisazione continua', lo: 'improvvisazione continua, nessuna procedura', hi: 'processi chiari, ruoli definiti, si sa chi fa cosa', vP: 3, vA: 3, w: 3 },
+      { id: 'st4', label: 'Formazione e affiancamento', note: 'Ti insegnano o ti buttano dentro e ti arrangi', lo: 'buttata dentro senza affiancamento', hi: 'percorso di inserimento e formazione strutturati', vP: 3, vA: 3, w: 3 },
+      { id: 'st5', label: 'Percorso di carriera formalizzato', note: 'Esistono livelli, valutazioni periodiche, avanzamenti prevedibili', lo: 'nessun livello né valutazione, si avanza a sensazione', hi: 'livelli, valutazioni periodiche e avanzamenti definiti', vP: 3, vA: 3, w: 3 },
+      { id: 'st6', label: 'Solidità economica del datore di lavoro', note: 'Fatturato, clienti, dipendenza da pochi committenti, situazione finanziaria', lo: 'conti fragili, dipendenza da pochi clienti', hi: 'azienda solida, portafoglio ampio, prospettive stabili', vP: 3, vA: 3, w: 3 },
+      { id: 'st7', label: 'Visibilità del contributo personale', note: 'Struttura grande: rischio di sparire nel numero. Piccola: tutto si vede', lo: 'il tuo lavoro non lo nota nessuno', hi: 'quello che fai si vede e viene attribuito a te', vP: 3, vA: 3, w: 3 },
+      { id: 'st8', label: 'Dipendenza dal singolo capo e tutele formali', note: 'In una struttura piccola se cambia il titolare cambia tutto; in una grande c’è chi ascolta', lo: 'tutto dipende dall’umore di una persona sola, nessuna tutela', hi: 'regole e interlocutori definiti, non dipende da una persona', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -614,14 +684,14 @@ const categories = [
     label: '🧠 Contenuto del lavoro e crescita',
     open: false,
     items: [
-      { id: 'w1', label: 'Interesse per le mansioni quotidiane', note: 'Non il ruolo sulla carta: cosa si fa davvero tutti i giorni', vP: 3, vA: 3, w: 3 },
-      { id: 'w2', label: 'Uso delle competenze già acquisite', note: 'Quello che sai fare bene serve ancora, o riparti da capo', vP: 3, vA: 3, w: 3 },
-      { id: 'w3', label: 'Nuove competenze acquisibili', note: 'Cosa impari che oggi non sai fare', vP: 3, vA: 3, w: 3 },
-      { id: 'w4', label: 'Autonomia e responsabilità', note: 'Decidi tu o esegui e basta', vP: 3, vA: 3, w: 3 },
-      { id: 'w5', label: 'Carico di lavoro sostenibile', note: 'Ritmo, scadenze, quantità: reggibile o si va sempre in apnea', vP: 3, vA: 3, w: 3 },
-      { id: 'w6', label: 'Uscita dalla comfort zone', note: 'Stimolo che fa crescere o stress che logora: dipende dal momento della vita', vP: 3, vA: 3, w: 3 },
-      { id: 'w7', label: 'Difficoltà dei primi 6–12 mesi', note: 'Curva di apprendimento, errori, sentirsi inadeguati, dover dimostrare tutto', vP: 3, vA: 3, w: 3 },
-      { id: 'w8', label: 'Spendibilità sul mercato del lavoro', note: 'Cosa scriverai sul CV fra tre anni e quanto vale fuori', vP: 3, vA: 3, w: 3 },
+      { id: 'w1', label: 'Interesse per le mansioni quotidiane', note: 'Non il ruolo sulla carta: cosa si fa davvero tutti i giorni', lo: 'giornate che non dicono niente', hi: 'cose che interessano davvero, il tempo passa', vP: 3, vA: 3, w: 3 },
+      { id: 'w2', label: 'Uso delle competenze già acquisite', note: 'Quello che sai fare bene serve ancora, o riparti da capo', lo: 'quello che sai fare bene non serve più', hi: 'le competenze già costruite sono centrali nel ruolo', vP: 3, vA: 3, w: 3 },
+      { id: 'w3', label: 'Nuove competenze acquisibili', note: 'Cosa impari che oggi non sai fare', lo: 'non si impara niente di nuovo', hi: 'si imparano cose concrete e spendibili', vP: 3, vA: 3, w: 3 },
+      { id: 'w4', label: 'Autonomia e responsabilità', note: 'Decidi tu o esegui e basta', lo: 'si esegue e basta, nessuna decisione', hi: 'autonomia reale su cosa fare e come farlo', vP: 3, vA: 3, w: 3 },
+      { id: 'w5', label: 'Carico di lavoro sostenibile', note: 'Ritmo, scadenze, quantità: reggibile o si va sempre in apnea', lo: 'sempre in apnea, arretrati cronici', hi: 'carico pieno ma gestibile, senza affanno', vP: 3, vA: 3, w: 3 },
+      { id: 'w6', label: 'Uscita dalla comfort zone', note: 'Stimolo che fa crescere o stress che logora: dipende dal momento della vita', lo: 'o nessuno stimolo, o uno stress che logora', hi: 'sfida nella giusta misura: stimola senza travolgere', vP: 3, vA: 3, w: 3 },
+      { id: 'w7', label: 'Difficoltà dei primi 6–12 mesi', note: 'Curva di apprendimento, errori, sentirsi inadeguati, dover dimostrare tutto', lo: 'mesi molto duri, tutto da imparare e da dimostrare', hi: 'inserimento morbido, operativa quasi subito', vP: 3, vA: 3, w: 3 },
+      { id: 'w8', label: 'Spendibilità sul mercato del lavoro', note: 'Cosa scriverai sul CV fra tre anni e quanto vale fuori', lo: 'ruolo che chiude le porte, difficile da raccontare altrove', hi: 'esperienza molto richiesta sul mercato', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -629,13 +699,13 @@ const categories = [
     label: '👥 Persone, clima e relazioni',
     open: false,
     items: [
-      { id: 'p1', label: 'Rapporto con i colleghi attuali', note: 'Un capitale costruito in anni che cambiando si lascia per strada', vP: 3, vA: 3, w: 3 },
-      { id: 'p2', label: 'Clima del nuovo ambiente', note: 'Quanto lo conosci davvero, al di là di come te l’hanno raccontato al colloquio', vP: 3, vA: 3, w: 3 },
-      { id: 'p3', label: 'Rapporto con il responsabile diretto', note: 'È il fattore che più di tutti decide come sarà la giornata tipo', vP: 3, vA: 3, w: 3 },
-      { id: 'p4', label: 'Reputazione del datore di lavoro', note: 'Turnover, passaparola, cosa dicono quelli che ci hanno lavorato', vP: 3, vA: 3, w: 3 },
-      { id: 'p5', label: 'Riconoscimento del lavoro svolto', note: 'Sentirsi visti e apprezzati, non solo pagati', vP: 3, vA: 3, w: 3 },
-      { id: 'p6', label: 'Credibilità già acquisita', note: 'Dove sei ora la reputazione è costruita; altrove va rifatta da zero', vP: 3, vA: 3, w: 3 },
-      { id: 'p7', label: 'Allineamento con valori e modo di lavorare', note: 'Etica, correttezza, rispetto degli orari e delle persone', vP: 3, vA: 3, w: 3 },
+      { id: 'p1', label: 'Rapporto con i colleghi attuali', note: 'Un capitale costruito in anni che cambiando si lascia per strada', lo: 'si perdono rapporti costruiti in anni', hi: 'i rapporti che contano restano intatti', vP: 3, vA: 3, w: 3 },
+      { id: 'p2', label: 'Clima del nuovo ambiente', note: 'Quanto lo conosci davvero, al di là di come te l’hanno raccontato al colloquio', lo: 'ambiente sconosciuto, o con segnali negativi', hi: 'clima buono e verificato da fonti attendibili', vP: 3, vA: 3, w: 3 },
+      { id: 'p3', label: 'Rapporto con il responsabile diretto', note: 'È il fattore che più di tutti decide come sarà la giornata tipo', lo: 'capo che rende pesante ogni giornata', hi: 'responsabile corretto e competente, ci si lavora bene', vP: 3, vA: 3, w: 3 },
+      { id: 'p4', label: 'Reputazione del datore di lavoro', note: 'Turnover, passaparola, cosa dicono quelli che ci hanno lavorato', lo: 'turnover alto, pessimo passaparola', hi: 'ottima reputazione, la gente ci resta per anni', vP: 3, vA: 3, w: 3 },
+      { id: 'p5', label: 'Riconoscimento del lavoro svolto', note: 'Sentirsi visti e apprezzati, non solo pagati', lo: 'nessuno nota né ringrazia', hi: 'lavoro visto, apprezzato e riconosciuto', vP: 3, vA: 3, w: 3 },
+      { id: 'p6', label: 'Credibilità già acquisita', note: 'Dove sei ora la reputazione è costruita; altrove va rifatta da zero', lo: 'si riparte da zero, tutto da dimostrare', hi: 'credibilità già costruita e consolidata', vP: 3, vA: 3, w: 3 },
+      { id: 'p7', label: 'Allineamento con valori e modo di lavorare', note: 'Etica, correttezza, rispetto degli orari e delle persone', lo: 'modo di lavorare che non condividi', hi: 'piena sintonia su correttezza e priorità', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -643,14 +713,14 @@ const categories = [
     label: '⚠️ Rischio, reversibilità e sicurezza',
     open: false,
     items: [
-      { id: 'r1', label: 'Sicurezza del posto', note: 'Basso rischio di perderlo nei prossimi anni', vP: 3, vA: 3, w: 3 },
-      { id: 'r2', label: 'Periodo di prova da superare', note: 'Cambiando si rientra in prova: il rischio è concreto e va pesato, non ignorato', vP: 3, vA: 3, w: 3 },
-      { id: 'r3', label: 'Prospettive del settore e dell’azienda', note: 'Dove va il mercato in cui opera il datore di lavoro', vP: 3, vA: 3, w: 3 },
-      { id: 'r4', label: 'Possibilità di tornare indietro', note: 'Porta lasciata aperta o ponte bruciato, se la scelta si rivela sbagliata', vP: 3, vA: 3, w: 3 },
-      { id: 'r5', label: 'Preavviso e tempi del passaggio', note: 'Durata del preavviso, sovrapposizioni, buchi di stipendio', vP: 3, vA: 3, w: 3 },
-      { id: 'r6', label: 'Corrispondenza tra promesse e realtà', note: 'Quanto di ciò che è stato detto è verificabile e messo per iscritto', vP: 3, vA: 3, w: 3 },
-      { id: 'r7', label: 'Impatto su mutui e pratiche finanziarie', note: 'Cambiare lavoro durante una pratica di finanziamento complica l’istruttoria', vP: 3, vA: 3, w: 3 },
-      { id: 'r8', label: 'Costo del non fare nulla', note: 'Restando, la situazione attuale migliora, resta uguale o peggiora? Anche non scegliere è una scelta', vP: 3, vA: 3, w: 3 },
+      { id: 'r1', label: 'Sicurezza del posto', note: 'Basso rischio di perderlo nei prossimi anni', lo: 'rischio concreto di perderlo nei prossimi anni', hi: 'posto solido, nessun rischio all’orizzonte', vP: 3, vA: 3, w: 3 },
+      { id: 'r2', label: 'Periodo di prova da superare', note: 'Cambiando si rientra in prova: il rischio è concreto e va pesato, non ignorato', lo: 'prova lunga, esito incerto, nessuna rete sotto', hi: 'nessuna prova da superare, o esito praticamente certo', vP: 3, vA: 3, w: 3 },
+      { id: 'r3', label: 'Prospettive del settore e dell’azienda', note: 'Dove va il mercato in cui opera il datore di lavoro', lo: 'settore in contrazione', hi: 'settore in crescita, quel profilo è richiesto', vP: 3, vA: 3, w: 3 },
+      { id: 'r4', label: 'Possibilità di tornare indietro', note: 'Porta lasciata aperta o ponte bruciato, se la scelta si rivela sbagliata', lo: 'ponte bruciato, indietro non si torna', hi: 'porta lasciata aperta, il rientro è possibile', vP: 3, vA: 3, w: 3 },
+      { id: 'r5', label: 'Preavviso e tempi del passaggio', note: 'Durata del preavviso, sovrapposizioni, buchi di stipendio', lo: 'preavviso lungo, tempi scomodi, rischio buco di stipendio', hi: 'passaggio pulito e immediato, nessun buco', vP: 3, vA: 3, w: 3 },
+      { id: 'r6', label: 'Corrispondenza tra promesse e realtà', note: 'Quanto di ciò che è stato detto è verificabile e messo per iscritto', lo: 'solo parole al colloquio, niente per iscritto', hi: 'tutto messo nero su bianco nella proposta', vP: 3, vA: 3, w: 3 },
+      { id: 'r7', label: 'Impatto su mutui e pratiche finanziarie', note: 'Cambiare lavoro durante una pratica di finanziamento complica l’istruttoria', lo: 'una pratica in corso che si complica seriamente', hi: 'nessuna pratica aperta, o nessun impatto', vP: 3, vA: 3, w: 3 },
+      { id: 'r8', label: 'Costo del non fare nulla', note: 'Restando, la situazione attuale migliora, resta uguale o peggiora? Anche non scegliere è una scelta', lo: 'scenario che peggiora di sicuro nel tempo', hi: 'scenario che migliora, o che è già buono così', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -658,12 +728,12 @@ const categories = [
     label: '🏡 Impatto su famiglia e vita privata',
     open: false,
     items: [
-      { id: 'fa1', label: 'Tempo con le figlie nei giorni feriali', note: 'Quante ore vere restano, non quelle teoriche', vP: 3, vA: 3, w: 3 },
-      { id: 'fa2', label: 'Energia residua a fine giornata', note: 'Tornare a casa presenti o svuotati cambia tutto', vP: 3, vA: 3, w: 3 },
-      { id: 'fa3', label: 'Carico organizzativo sull’altro genitore', note: 'Chi assorbe gli orari scoperti, le emergenze, le commissioni', vP: 3, vA: 3, w: 3 },
-      { id: 'fa4', label: 'Costi aggiuntivi di gestione familiare', note: 'Pre e post scuola, centri estivi, baby sitter, mensa: erodono l’aumento', vP: 3, vA: 3, w: 3 },
-      { id: 'fa5', label: 'Sostenibilità della routine familiare complessiva', note: 'La macchina di casa regge con i nuovi orari, o si incastra ogni settimana', vP: 3, vA: 3, w: 3 },
-      { id: 'fa6', label: 'Tempo per sé, sport e interessi personali', note: 'Quello che salta per primo quando il lavoro si allarga', vP: 3, vA: 3, w: 3 },
+      { id: 'fa1', label: 'Tempo con le figlie nei giorni feriali', note: 'Quante ore vere restano, non quelle teoriche', lo: 'si rientra che sono già a letto', hi: 'si è a casa per merenda, compiti e cena', vP: 3, vA: 3, w: 3 },
+      { id: 'fa2', label: 'Energia residua a fine giornata', note: 'Tornare a casa presenti o svuotati cambia tutto', lo: 'si arriva a casa completamente svuotati', hi: 'si arriva a casa con energie per stare con loro', vP: 3, vA: 3, w: 3 },
+      { id: 'fa3', label: 'Carico organizzativo sull’altro genitore', note: 'Chi assorbe gli orari scoperti, le emergenze, le commissioni', lo: 'tutto il peso organizzativo si sposta sull’altro genitore', hi: 'carico equilibrato, nessuno stravolgimento', vP: 3, vA: 3, w: 3 },
+      { id: 'fa4', label: 'Costi aggiuntivi di gestione familiare', note: 'Pre e post scuola, centri estivi, baby sitter, mensa: erodono l’aumento', lo: 'costi di gestione che si mangiano l’aumento', hi: 'nessun costo aggiuntivo, o addirittura un risparmio', vP: 3, vA: 3, w: 3 },
+      { id: 'fa5', label: 'Sostenibilità della routine familiare complessiva', note: 'La macchina di casa regge con i nuovi orari, o si incastra ogni settimana', lo: 'ogni settimana è un incastro da risolvere', hi: 'la macchina di casa gira senza sforzo', vP: 3, vA: 3, w: 3 },
+      { id: 'fa6', label: 'Tempo per sé, sport e interessi personali', note: 'Quello che salta per primo quando il lavoro si allarga', lo: 'nessuno spazio per sport o interessi', hi: 'spazio vero per sé, con regolarità', vP: 3, vA: 3, w: 3 },
     ]
   },
   {
@@ -671,12 +741,12 @@ const categories = [
     label: '🧭 Fattori personali e psicologici',
     open: false,
     items: [
-      { id: 'ps1', label: 'Soddisfazione e senso di realizzazione', note: 'Alzarsi la mattina con la sensazione che valga la pena', vP: 3, vA: 3, w: 3 },
-      { id: 'ps2', label: 'Sostenibilità della situazione attuale', note: 'Quanto si regge ancora così com’è, onestamente', vP: 3, vA: 3, w: 3 },
-      { id: 'ps3', label: 'Stress e impatto sulla salute', note: 'Sonno, ansia, tensione fisica: il corpo tiene il conto', vP: 3, vA: 3, w: 3 },
-      { id: 'ps4', label: 'Peso della paura del cambiamento', note: 'Quanto della resistenza è ragionamento e quanto è solo timore dell’ignoto', vP: 3, vA: 3, w: 3 },
-      { id: 'ps5', label: 'Rimpianto di non aver provato', note: 'Come si guarderà questa decisione fra cinque anni', vP: 3, vA: 3, w: 3 },
-      { id: 'ps6', label: 'Sostenibilità a 5–10 anni', note: 'Ti ci vedi ancora in quel ruolo, con quegli orari, alla lunga', vP: 3, vA: 3, w: 3 },
+      { id: 'ps1', label: 'Soddisfazione e senso di realizzazione', note: 'Alzarsi la mattina con la sensazione che valga la pena', lo: 'si va al lavoro controvoglia', hi: 'senso di realizzazione concreto', vP: 3, vA: 3, w: 3 },
+      { id: 'ps2', label: 'Sostenibilità della situazione attuale', note: 'Quanto si regge ancora così com’è, onestamente', lo: 'non si regge più, è già oltre il limite', hi: 'situazione serena, si può andare avanti così', vP: 3, vA: 3, w: 3 },
+      { id: 'ps3', label: 'Stress e impatto sulla salute', note: 'Sonno, ansia, tensione fisica: il corpo tiene il conto', lo: 'sonno, ansia e tensione fisica già compromessi', hi: 'nessun impatto sulla salute', vP: 3, vA: 3, w: 3 },
+      { id: 'ps4', label: 'Peso della paura del cambiamento', note: 'Quanto della resistenza è ragionamento e quanto è solo timore dell’ignoto', lo: 'la scelta sarebbe guidata più dalla paura che dal ragionamento', hi: 'decisione lucida, la paura non pesa', vP: 3, vA: 3, w: 3 },
+      { id: 'ps5', label: 'Rimpianto di non aver provato', note: 'Come si guarderà questa decisione fra cinque anni', lo: 'fra cinque anni te ne pentirai', hi: 'fra cinque anni sarà una scelta di cui essere contenti', vP: 3, vA: 3, w: 3 },
+      { id: 'ps6', label: 'Sostenibilità a 5–10 anni', note: 'Ti ci vedi ancora in quel ruolo, con quegli orari, alla lunga', lo: 'insostenibile alla lunga', hi: 'ti ci vedi ancora fra dieci anni', vP: 3, vA: 3, w: 3 },
     ]
   },
 ];
@@ -758,6 +828,10 @@ function render() {
         <div class="row-label">
           ${item.label}
           ${item.note ? `<small>${item.note}</small>` : ''}
+          ${item.lo ? `<div class="scale-hint">
+            <span class="sh sh-lo"><b>1</b>${item.lo}</span>
+            <span class="sh sh-hi"><b>5</b>${item.hi}</span>
+          </div>` : ''}
           <div class="wcontrib">
             <span class="wc-p" id="wc-p-${item.id}">R:${wcP}</span>
             <span class="wc-a" id="wc-a-${item.id}">C:${wcA}</span>
