@@ -196,6 +196,50 @@
   .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
   .ctrl-btn.save { border-color: var(--cambia); color: var(--cambia); }
   .ctrl-btn.save:hover { background: var(--cambia-dim); }
+  .ctrl-btn.restore { border-color: var(--resta); color: var(--resta); }
+  .ctrl-btn.restore:hover { background: var(--resta-dim); }
+
+  /* BARRA BOZZA: compare solo se c'e' un lavoro interrotto su questo dispositivo */
+  .draft-bar {
+    display: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+  }
+  .draft-bar.open { display: flex; }
+  .draft-bar .db-text {
+    flex: 1;
+    min-width: 200px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .draft-bar .db-text b { color: var(--accent); }
+  .draft-bar .db-text small {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* Riga di avanzamento nella barra del verdetto */
+  .progress-line {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .progress-line b { color: var(--accent); font-weight: 500; }
+
+  /* Messaggio di esito di backup / ripristino */
+  .save-box-msg.error { color: #d98c7a; }
 
   /* SAVE BOX */
   .save-box {
@@ -577,14 +621,27 @@
     </div>
   </div>
   <div class="verdict-text" id="verdict-text">—</div>
+  <div class="progress-line" id="progress-line">—</div>
+</div>
+
+<div class="draft-bar" id="draft-bar">
+  <div class="db-text" id="draft-text"></div>
+  <button class="ctrl-btn restore" onclick="resumeDraft()">▸ Riprendi</button>
+  <button class="ctrl-btn" onclick="discardDraft()">✕ Elimina bozza</button>
 </div>
 
 <div class="controls">
-  <button class="ctrl-btn save" onclick="saveState()">💾 Salva</button>
+  <button class="ctrl-btn save" onclick="downloadBackup()">⬇ Backup su file</button>
+  <button class="ctrl-btn restore" onclick="document.getElementById('restore-file').click()">⬆ Ripristina da file</button>
+  <button class="ctrl-btn" onclick="saveState()">🔗 Link salvato</button>
   <button class="ctrl-btn" onclick="resetAll()">↺ Reset tutto</button>
   <button class="ctrl-btn" onclick="toggleAll(true)">▸ Espandi tutto</button>
   <button class="ctrl-btn" onclick="toggleAll(false)">▾ Comprimi tutto</button>
 </div>
+
+<input type="file" id="restore-file" accept="application/json,.json"
+  style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"
+  onchange="restoreFromFile(this)">
 
 <div class="save-box" id="save-box">
   <div class="save-box-msg" id="save-box-msg"></div>
@@ -592,7 +649,7 @@
     <input type="text" id="save-link" readonly onclick="this.select()">
     <button class="ctrl-btn" onclick="copyLink()">📋 Copia</button>
   </div>
-  <div class="save-box-hint">Apri questo link da telefono, tablet o un altro PC per ritrovare gli stessi voti e pesi.</div>
+  <div class="save-box-hint" id="save-box-hint">Apri questo link da telefono, tablet o un altro PC per ritrovare gli stessi voti e pesi.</div>
 </div>
 
 <div class="col-headers">
@@ -895,6 +952,7 @@ function render() {
           updateRow(id);
           updateCatSubtotal(itemCat[id]);
           updateTotals();
+          scheduleDraftSave();
         });
       });
     });
@@ -951,6 +1009,8 @@ function updateTotals() {
   document.getElementById('bar-p').style.width = (totalP / maxPossible * 100).toFixed(1) + '%';
   document.getElementById('bar-a').style.width = (totalA / maxPossible * 100).toFixed(1) + '%';
 
+  updateProgress();
+
   const diff = totalP - totalA;
   const diffAbs = Math.abs(diff);
   const pct = ((diffAbs / maxPossible) * 100).toFixed(0);
@@ -973,11 +1033,191 @@ function resetAll() {
     });
   });
   render();
+  saveDraft();
 }
 
 function toggleAll(open) {
   categories.forEach(cat => openCats[cat.id] = open);
   render();
+}
+
+
+// ── AVANZAMENTO ────────────────────────────────────────────────────────────
+// Quanti criteri sono stati toccati: serve a sapere dove si era rimasti
+// quando la compilazione viene spezzata in piu' sessioni.
+function countTouched() {
+  let n = 0;
+  Object.keys(state).forEach(id => {
+    const s = state[id], d = defaults[id];
+    if (s.vP !== d.vP || s.vA !== d.vA || s.w !== d.w) n++;
+  });
+  return n;
+}
+
+function updateProgress() {
+  const el = document.getElementById('progress-line');
+  if (!el) return;
+  const tot = Object.keys(state).length;
+  const n = countTouched();
+  el.innerHTML = n === 0
+    ? `Tutti i ${tot} criteri sono ancora al valore neutro. Sposta gli slider per iniziare.`
+    : `Criteri compilati: <b>${n}</b> su ${tot} · i restanti ${tot - n} sono ancora neutri`;
+}
+
+// ── STATO: APPLICAZIONE VALIDATA ───────────────────────────────────────────
+// Unico punto di ingresso per i dati che arrivano da fuori (file, link,
+// bozza). Accetta solo criteri noti e solo interi 1-5: un file manomesso o
+// di un'altra versione non puo' iniettare valori arbitrari nel punteggio.
+function applyState(src) {
+  if (!src || typeof src !== 'object') return 0;
+  let n = 0;
+  Object.keys(src).forEach(id => {
+    if (!Object.prototype.hasOwnProperty.call(state, id)) return;
+    const row = src[id];
+    if (!row || typeof row !== 'object') return;
+    let touched = false;
+    ['vP', 'vA', 'w'].forEach(f => {
+      const v = Math.round(Number(row[f]));
+      if (Number.isFinite(v) && v >= 1 && v <= 5) { state[id][f] = v; touched = true; }
+    });
+    if (touched) n++;
+  });
+  return n;
+}
+
+function flash(msg, isError) {
+  const box = document.getElementById('save-box');
+  const el = document.getElementById('save-box-msg');
+  const hint = document.getElementById('save-box-hint');
+  const row = document.querySelector('.save-link-row');
+  el.textContent = msg;
+  el.classList.toggle('error', !!isError);
+  row.style.display = 'none';
+  hint.style.display = 'none';
+  box.classList.add('open');
+}
+
+function fmtWhen(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} alle ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// ── BOZZA LOCALE (solo questo browser, su questo dispositivo) ──────────────
+const DRAFT_KEY = 'decisioni-ponderate:cambio-lavoro:bozza';
+let draftTimer = null;
+
+function saveDraft() {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      app: 'cambio-lavoro', v: 1, savedAt: Date.now(), state
+    }));
+  } catch (e) {
+    // spazio esaurito o navigazione privata: la bozza e' un di piu',
+    // il backup su file resta la via affidabile
+  }
+}
+
+function scheduleDraftSave() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 400);
+}
+
+function readDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return (d && d.state) ? d : null;
+  } catch (e) { return null; }
+}
+
+function offerDraft() {
+  const d = readDraft();
+  if (!d) return;
+  let n = 0;
+  Object.keys(d.state).forEach(id => {
+    const row = d.state[id], def = defaults[id];
+    if (!def || !row) return;
+    if (row.vP !== def.vP || row.vA !== def.vA || row.w !== def.w) n++;
+  });
+  if (n === 0) return;
+  document.getElementById('draft-text').innerHTML =
+    `Su questo dispositivo c’è una <b>compilazione interrotta</b>: ${n} criteri già impostati.` +
+    `<small>Salvata il ${fmtWhen(d.savedAt)}. La pagina si apre sempre neutra: premi Riprendi per recuperarla.</small>`;
+  document.getElementById('draft-bar').classList.add('open');
+}
+
+function resumeDraft() {
+  const d = readDraft();
+  if (!d) { flash('Nessuna bozza da riprendere.', true); return; }
+  if (applyState(d.state) === 0) { flash('La bozza non contiene criteri validi.', true); return; }
+  render();
+  document.getElementById('draft-bar').classList.remove('open');
+  flash(`Bozza del ${fmtWhen(d.savedAt)} ripresa: ${countTouched()} criteri compilati su ${Object.keys(state).length}.`);
+}
+
+function discardDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  document.getElementById('draft-bar').classList.remove('open');
+}
+
+// ── BACKUP SU FILE ─────────────────────────────────────────────────────────
+// Un .json scaricato: si mette dove si vuole (cartella Google Drive,
+// Dropbox, allegato di una mail) e si rilegge da qualsiasi dispositivo.
+function downloadBackup() {
+  const payload = {
+    app: 'cambio-lavoro',
+    v: 1,
+    savedAt: new Date().toISOString(),
+    compilati: countTouched(),
+    totale: Object.keys(state).length,
+    state
+  };
+  const p = n => String(n).padStart(2, '0');
+  const d = new Date();
+  const name = `cambio-lavoro_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  saveDraft();
+  flash(`Backup scaricato: ${name} — salvalo nella cartella Google Drive per riaprirlo da qualsiasi dispositivo.`);
+}
+
+function restoreFromFile(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const d = JSON.parse(reader.result);
+      const src = (d && d.state) ? d.state : d;
+      const n = applyState(src);
+      if (n === 0) {
+        flash('File letto, ma non contiene criteri validi di questo strumento.', true);
+      } else {
+        render();
+        saveDraft();
+        document.getElementById('draft-bar').classList.remove('open');
+        const when = (d && d.savedAt) ? `Backup del ${fmtWhen(d.savedAt)} caricato` : 'Backup caricato';
+        flash(`${when}: ${countTouched()} criteri compilati su ${Object.keys(state).length}.`);
+      }
+    } catch (e) {
+      flash('File non valido: non sembra un backup di questo strumento.', true);
+    }
+    input.value = '';
+  };
+  reader.onerror = () => {
+    flash('Impossibile leggere il file selezionato.', true);
+    input.value = '';
+  };
+  reader.readAsText(f);
 }
 
 // ── SALVA / CARICA (stato nel link) ─────────────────────────────────────────
@@ -993,6 +1233,9 @@ function saveState() {
   const msg = document.getElementById('save-box-msg');
   input.value = url;
   history.replaceState(null, '', '#s=' + encodeState());
+  document.querySelector('.save-link-row').style.display = 'flex';
+  document.getElementById('save-box-hint').style.display = 'block';
+  msg.classList.remove('error');
   box.classList.add('open');
   copyLink(true);
   msg.textContent = '✓ Salvato. Link pronto qui sotto.';
@@ -1022,10 +1265,7 @@ function loadFromURL() {
     const json = decodeURIComponent(escape(atob(m[1])));
     const payload = JSON.parse(json);
     if (payload && payload.state) {
-      Object.keys(payload.state).forEach(id => {
-        if (state[id]) state[id] = { ...state[id], ...payload.state[id] };
-      });
-      return true;
+      return applyState(payload.state) > 0;
     }
   } catch (e) {
     console.warn('Link salvato non valido:', e);
@@ -1033,6 +1273,8 @@ function loadFromURL() {
   return false;
 }
 
+// La pagina parte sempre neutra (tutto a 3), salvo che sia stata aperta da un
+// link salvato. La bozza locale non si applica da sola: viene solo proposta.
 const restored = loadFromURL();
 render();
 if (restored) {
@@ -1041,6 +1283,9 @@ if (restored) {
   document.getElementById('save-link').value = location.href;
   msg.textContent = '✓ Valori caricati dal link salvato.';
   box.classList.add('open');
+  saveDraft();
+} else {
+  offerDraft();
 }
 </script>
 </body>
